@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { Metadata } from "next";
 import SectionHeading from "@/components/SectionHeading";
 import ProductCard from "@/components/ProductCard";
 import {
