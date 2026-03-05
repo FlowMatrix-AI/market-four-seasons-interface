@@ -1,15 +1,21 @@
 import type { NextConfig } from "next";
 
+const tracedFiles = [
+  "./prisma/bloom.db",
+  "./src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node",
+  "./src/generated/prisma/**",
+];
+
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/api/**": ["./prisma/bloom.db"],
-    "/": ["./prisma/bloom.db"],
-    "/customers/**": ["./prisma/bloom.db"],
-    "/orders/**": ["./prisma/bloom.db"],
-    "/settings/**": ["./prisma/bloom.db"],
-    "/print/**": ["./prisma/bloom.db"],
-    "/notifications/**": ["./prisma/bloom.db"],
-    "/login": ["./prisma/bloom.db"],
+    "/api/**": tracedFiles,
+    "/": tracedFiles,
+    "/customers/**": tracedFiles,
+    "/orders/**": tracedFiles,
+    "/settings/**": tracedFiles,
+    "/print/**": tracedFiles,
+    "/notifications/**": tracedFiles,
+    "/login": tracedFiles,
   },
 };
 
