@@ -32,6 +32,20 @@ async function main() {
   });
   console.log("Created staff:", staff.email);
 
+  // Create test account for QA / demo
+  const testPassword = await bcrypt.hash("123456789", 10);
+  const testUser = await prisma.profile.upsert({
+    where: { email: "test@testemail.com" },
+    update: { password: testPassword },
+    create: {
+      email: "test@testemail.com",
+      password: testPassword,
+      name: "Test User",
+      role: "owner",
+    },
+  });
+  console.log("Created test user:", testUser.email);
+
   // Create sample clients
   const robert = await prisma.client.upsert({
     where: { id: "client-robert" },
