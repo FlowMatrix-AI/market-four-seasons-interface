@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/login", "/api/auth/login", "/api/debug"];
+const publicPaths = ["/login", "/api/auth/login"];
 const printPaths = ["/print/"];
 
 export function middleware(request: NextRequest) {
