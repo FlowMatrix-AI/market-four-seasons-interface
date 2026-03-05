@@ -1,5 +1,6 @@
-import { PrismaClient } from "@/generated/prisma/client";
+// IMPORTANT: db-init must be imported first - it sets PRISMA_QUERY_ENGINE_LIBRARY
 import { ensureDatabase } from "./db-init";
+import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
