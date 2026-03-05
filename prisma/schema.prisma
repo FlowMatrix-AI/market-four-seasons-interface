@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("staff") // owner | staff
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id              String               @id @default(cuid())
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  city            String?
+  postal          String?
+  notes           String?
+  preferences     String               @default("[]") // JSON array
+  profilePhotoUrl String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  specialDates    SpecialDate[]
+  orders          Order[]              @relation("ClientOrders")
+  subscriptions   Subscription[]
+  photos          ClientPhoto[]
+  clientNotes     ClientNote[]
+  relationshipsA  ClientRelationship[] @relation("RelationA")
+  relationshipsB  ClientRelationship[] @relation("RelationB")
+}
+
+model SpecialDate {
+  id       String  @id @default(cuid())
+  clientId String
+  label    String
+  month    Int
+  day      Int
+  year     Int?
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientRelationship {
+  id               String @id @default(cuid())
+  clientId         String
+  relatedClientId  String
+  relationshipType String
+  notes            String?
+  client           Client @relation("RelationA", fields: [clientId], references: [id], onDelete: Cascade)
+  relatedClient    Client @relation("RelationB", fields: [relatedClientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, relatedClientId])
+}
+
+model Order {
+  id                      String    @id @default(cuid())
+  orderNumber             String    @unique
+  clientId                String
+  recipientName           String?
+  recipientAddress        String?
+  recipientPhone          String?
+  occasion                String?
+  arrangementType         String?
+  flowers                 String    @default("[]") // JSON array
+  specialInstructions     String?
+  cardRequired            Boolean   @default(false)
+  cardMessage             String?
+  price                   Float     @default(0)
+  itemCount               Int       @default(1)
+  paymentStatus           String    @default("unpaid") // paid | unpaid | partial
+  deliveryDate            DateTime
+  deliveryTimeWindow      String?
+  deliveryMethod          String    @default("delivery") // delivery | pickup
+  deliveryAddress         String?
+  internalNotes           String?
+  status                  String    @default("confirmed") // draft | confirmed | in_progress | ready | delivered | cancelled
+  isSubscriptionGenerated Boolean   @default(false)
+  subscriptionId          String?
+  invoiceNumber           String?
+  createdBy               String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  client                  Client    @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
+  subscription            Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model Subscription {
+  id                String    @id @default(cuid())
+  clientId          String
+  frequency         String    // weekly | biweekly | monthly
+  startDate         DateTime
+  endDate           DateTime?
+  arrangementType   String?
+  flowers           String    @default("[]") // JSON array
+  specialInstructions String?
+  deliveryMethod    String    @default("delivery")
+  deliveryAddress   String?
+  price             Float     @default(0)
+  status            String    @default("active") // active | paused | cancelled
+  lastGeneratedDate DateTime?
+  nextOrderDate     DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  client            Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  orders            Order[]
+}
+
+model ClientPhoto {
+  id         String   @id @default(cuid())
+  clientId   String
+  storageUrl String
+  caption    String?
+  createdAt  DateTime @default(now())
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientNote {
+  id        String   @id @default(cuid())
+  clientId  String
+  body      String
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
