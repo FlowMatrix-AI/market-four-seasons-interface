@@ -4,23 +4,31 @@ import { getSession } from "@/lib/auth";
 import { generateOrderNumber } from "@/lib/utils/orderNumber";
 import { z } from "zod";
 
+const LineItemSchema = z.object({
+  arrangementType: z.string().optional(),
+  description: z.string().optional(),
+  flowers: z.array(z.object({
+    variety: z.string(),
+    color: z.string(),
+    qty: z.number(),
+  })).optional(),
+  vaseOption: z.string().optional(),
+  vaseDescription: z.string().optional(),
+  wrapOption: z.string().optional(),
+  cardRequired: z.boolean().optional(),
+  cardMessage: z.string().optional(),
+  specialInstructions: z.string().optional(),
+  price: z.number().min(0).optional(),
+  sortOrder: z.number().optional(),
+});
+
 const CreateOrderSchema = z.object({
   clientId: z.string().min(1),
   recipientName: z.string().optional(),
   recipientAddress: z.string().optional(),
   recipientPhone: z.string().optional(),
   occasion: z.string().optional(),
-  arrangementType: z.string().optional(),
-  flowers: z.array(z.object({
-    variety: z.string(),
-    color: z.string(),
-    qty: z.number(),
-  })).optional(),
-  specialInstructions: z.string().optional(),
-  cardRequired: z.boolean().optional(),
-  cardMessage: z.string().optional(),
-  price: z.number().min(0).optional(),
-  itemCount: z.number().min(1).optional(),
+  locationType: z.string().optional(),
   paymentStatus: z.string().optional(),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   deliveryTimeWindow: z.string().optional(),
@@ -28,6 +36,7 @@ const CreateOrderSchema = z.object({
   deliveryAddress: z.string().optional(),
   internalNotes: z.string().optional(),
   status: z.string().optional(),
+  lineItems: z.array(LineItemSchema).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -40,6 +49,7 @@ export async function GET(request: NextRequest) {
   const end = searchParams.get("end");
   const clientId = searchParams.get("clientId");
   const status = searchParams.get("status");
+  const location = searchParams.get("location");
 
   const where: Record<string, unknown> = {};
 
@@ -54,10 +64,11 @@ export async function GET(request: NextRequest) {
 
   if (clientId) where.clientId = clientId;
   if (status) where.status = status;
+  if (location && location !== "all") where.locationType = location;
 
   const orders = await prisma.order.findMany({
     where,
-    include: { client: true },
+    include: { client: true, lineItems: { orderBy: { sortOrder: "asc" } } },
     orderBy: { deliveryDate: "asc" },
     take: 200,
   });
@@ -79,6 +90,9 @@ export async function POST(request: NextRequest) {
   const deliveryDate = new Date(data.deliveryDate);
   const orderNumber = await generateOrderNumber(deliveryDate);
 
+  const lineItems = data.lineItems || [];
+  const totalPrice = lineItems.reduce((sum, item) => sum + (item.price || 0), 0);
+
   const order = await prisma.order.create({
     data: {
       orderNumber,
@@ -87,13 +101,8 @@ export async function POST(request: NextRequest) {
       recipientAddress: data.recipientAddress,
       recipientPhone: data.recipientPhone,
       occasion: data.occasion,
-      arrangementType: data.arrangementType,
-      flowers: JSON.stringify(data.flowers || []),
-      specialInstructions: data.specialInstructions,
-      cardRequired: data.cardRequired || false,
-      cardMessage: data.cardMessage,
-      price: data.price || 0,
-      itemCount: data.itemCount || 1,
+      locationType: data.locationType || "indoor",
+      totalPrice,
       paymentStatus: data.paymentStatus || "unpaid",
       deliveryDate,
       deliveryTimeWindow: data.deliveryTimeWindow,
@@ -102,8 +111,23 @@ export async function POST(request: NextRequest) {
       internalNotes: data.internalNotes,
       status: data.status || "confirmed",
       createdBy: session.id,
+      lineItems: {
+        create: lineItems.map((item, idx) => ({
+          arrangementType: item.arrangementType,
+          description: item.description,
+          flowers: JSON.stringify(item.flowers || []),
+          vaseOption: item.vaseOption,
+          vaseDescription: item.vaseDescription,
+          wrapOption: item.wrapOption,
+          cardRequired: item.cardRequired || false,
+          cardMessage: item.cardMessage,
+          specialInstructions: item.specialInstructions,
+          price: item.price || 0,
+          sortOrder: item.sortOrder ?? idx,
+        })),
+      },
     },
-    include: { client: true },
+    include: { client: true, lineItems: { orderBy: { sortOrder: "asc" } } },
   });
 
   return NextResponse.json(order, { status: 201 });

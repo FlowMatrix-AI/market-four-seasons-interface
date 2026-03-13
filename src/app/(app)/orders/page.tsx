@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import Badge from "@/components/ui/Badge";
-import OrderDetailModal from "@/components/orders/OrderDetailModal";
-import OrderFormModal from "@/components/orders/OrderFormModal";
 import { TableSkeleton } from "@/components/ui/LoadingSkeleton";
 import { Plus } from "lucide-react";
 
@@ -13,17 +12,17 @@ interface OrderData {
   orderNumber: string;
   deliveryDate: string;
   deliveryMethod: string;
+  locationType: string;
   status: string;
   paymentStatus: string;
-  price: number;
+  totalPrice: number;
   client: { id: string; name: string };
+  lineItems: { id: string; arrangementType: string | null; price: number }[];
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -43,12 +42,12 @@ export default function OrdersPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold">All Orders</h2>
-        <button
-          onClick={() => setShowNew(true)}
+        <Link
+          href="/orders/new"
           className="bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold px-3 py-1.5 rounded-md flex items-center gap-1"
         >
           <Plus className="w-4 h-4" /> New Order
-        </button>
+        </Link>
       </div>
 
       {loading ? (
@@ -71,13 +70,19 @@ export default function OrdersPage() {
                 Date
               </th>
               <th className="text-left text-xs font-semibold text-neutral-600 uppercase tracking-wide px-4 py-3">
+                Location
+              </th>
+              <th className="text-left text-xs font-semibold text-neutral-600 uppercase tracking-wide px-4 py-3">
                 Method
+              </th>
+              <th className="text-left text-xs font-semibold text-neutral-600 uppercase tracking-wide px-4 py-3">
+                Items
               </th>
               <th className="text-left text-xs font-semibold text-neutral-600 uppercase tracking-wide px-4 py-3">
                 Status
               </th>
               <th className="text-left text-xs font-semibold text-neutral-600 uppercase tracking-wide px-4 py-3">
-                Price
+                Total
               </th>
               <th className="text-left text-xs font-semibold text-neutral-600 uppercase tracking-wide px-4 py-3">
                 Payment
@@ -88,7 +93,7 @@ export default function OrdersPage() {
             {orders.map((o) => (
               <tr
                 key={o.id}
-                onClick={() => setSelectedId(o.id)}
+                onClick={() => window.location.href = `/orders/${o.id}`}
                 className="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer"
               >
                 <td className="px-4 py-3 text-sm font-medium">
@@ -99,16 +104,26 @@ export default function OrdersPage() {
                   {format(new Date(o.deliveryDate), "MMM d, yyyy")}
                 </td>
                 <td className="px-4 py-3">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
+                    o.locationType === "outdoor"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-pink-100 text-pink-700"
+                  }`}>
+                    {o.locationType}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
                   <Badge variant={o.deliveryMethod as "delivery" | "pickup"}>
                     {o.deliveryMethod}
                   </Badge>
                 </td>
+                <td className="px-4 py-3 text-sm">{o.lineItems?.length || 0}</td>
                 <td className="px-4 py-3">
                   <Badge variant={o.status as "confirmed" | "delivered"}>
                     {o.status.replace("_", " ")}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-sm">${o.price.toFixed(2)}</td>
+                <td className="px-4 py-3 text-sm">${o.totalPrice.toFixed(2)}</td>
                 <td className="px-4 py-3">
                   <Badge variant={o.paymentStatus as "paid" | "unpaid" | "partial"}>
                     {o.paymentStatus}
@@ -119,23 +134,6 @@ export default function OrdersPage() {
           </tbody>
         </table>
       )}
-
-      {selectedId && (
-        <OrderDetailModal
-          orderId={selectedId}
-          onClose={() => setSelectedId(null)}
-          onUpdated={fetchOrders}
-        />
-      )}
-
-      <OrderFormModal
-        open={showNew}
-        onClose={() => setShowNew(false)}
-        onSaved={() => {
-          setShowNew(false);
-          fetchOrders();
-        }}
-      />
     </div>
   );
 }

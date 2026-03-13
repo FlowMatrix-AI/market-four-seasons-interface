@@ -19,11 +19,12 @@ interface LabelData {
 export default async function LabelsPage({ searchParams }: PageProps) {
   const { orderId, date } = await searchParams;
 
-  let orders: Awaited<ReturnType<typeof prisma.order.findMany<{ include: { client: true } }>>>;
+  const includeOpts = { client: true, lineItems: { orderBy: { sortOrder: "asc" as const } } };
+  let orders: Awaited<ReturnType<typeof prisma.order.findMany<{ include: typeof includeOpts }>>>;
   if (orderId) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { client: true },
+      include: includeOpts,
     });
     orders = order ? [order] : [];
   } else if (date) {
@@ -32,7 +33,7 @@ export default async function LabelsPage({ searchParams }: PageProps) {
     next.setDate(next.getDate() + 1);
     orders = await prisma.order.findMany({
       where: { deliveryDate: { gte: d, lt: next } },
-      include: { client: true },
+      include: includeOpts,
       orderBy: { deliveryDate: "asc" },
     });
   } else {
@@ -63,33 +64,37 @@ export default async function LabelsPage({ searchParams }: PageProps) {
       ""
     ).toUpperCase();
 
-    const flowers: Array<{ variety: string; qty: number }> = (() => {
-      try {
-        return JSON.parse(order.flowers);
-      } catch {
-        return [];
-      }
-    })();
+    const lineItems = order.lineItems || [];
+    const totalItems = lineItems.length || 1;
 
-    const itemDesc =
-      flowers.length > 0
-        ? flowers
-            .map((f: { variety: string; qty: number }) => `${f.qty} X ${f.variety.toUpperCase()}`)
-            .join(", ")
-        : `${order.itemCount} X ${(order.arrangementType || "ARRANGEMENT").toUpperCase()}`;
+    if (lineItems.length > 0) {
+      lineItems.forEach((item, idx) => {
+        const flowers: Array<{ variety: string; qty: number }> = (() => {
+          try { return JSON.parse(item.flowers); } catch { return []; }
+        })();
+        const itemDesc = flowers.length > 0
+          ? flowers.map((f: { variety: string; qty: number }) => `${f.qty} X ${f.variety.toUpperCase()}`).join(", ")
+          : `1 X ${(item.arrangementType || "ARRANGEMENT").toUpperCase()}`;
 
-    for (let i = 0; i < order.itemCount; i++) {
+        labels.push({
+          date: dateStr,
+          deliveryMethod: method,
+          number: deliveryNum,
+          recipientName: name,
+          address: addr,
+          items: itemDesc,
+          itemLabel: `ITEM ${idx + 1}/${totalItems}`,
+        });
+      });
+    } else {
       labels.push({
         date: dateStr,
         deliveryMethod: method,
         number: deliveryNum,
         recipientName: name,
         address: addr,
-        items: itemDesc,
-        itemLabel:
-          order.itemCount > 1
-            ? `ITEM ${i + 1}/${order.itemCount}`
-            : "ITEM 1/1",
+        items: "1 X ARRANGEMENT",
+        itemLabel: "ITEM 1/1",
       });
     }
   }

@@ -143,7 +143,10 @@ function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const title =
     pageTitles[pathname] ||
-    (pathname.startsWith("/customers/") ? "Client Profile" : "Bloom");
+    (pathname.startsWith("/customers/") ? "Client Profile" :
+     pathname === "/orders/new" ? "New Order" :
+     pathname.endsWith("/edit") && pathname.startsWith("/orders/") ? "Edit Order" :
+     pathname.startsWith("/orders/") ? "Order Details" : "Bloom");
 
   return (
     <div className="md:ml-56 min-h-screen bg-neutral-50 pb-16 md:pb-0">

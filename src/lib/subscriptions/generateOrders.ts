@@ -60,10 +60,7 @@ export async function generateSubscriptionOrders() {
       data: {
         orderNumber,
         clientId: sub.clientId,
-        arrangementType: sub.arrangementType,
-        flowers: sub.flowers,
-        specialInstructions: sub.specialInstructions,
-        price: sub.price,
+        totalPrice: sub.price,
         deliveryDate: sub.nextOrderDate,
         deliveryMethod: sub.deliveryMethod,
         deliveryAddress: sub.deliveryAddress,
@@ -71,6 +68,15 @@ export async function generateSubscriptionOrders() {
         isSubscriptionGenerated: true,
         subscriptionId: sub.id,
         paymentStatus: "unpaid",
+        lineItems: {
+          create: [{
+            arrangementType: sub.arrangementType,
+            flowers: sub.flowers || "[]",
+            specialInstructions: sub.specialInstructions,
+            price: sub.price,
+            sortOrder: 0,
+          }],
+        },
       },
     });
 

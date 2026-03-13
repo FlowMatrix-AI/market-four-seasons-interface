@@ -6,9 +6,8 @@ import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import Badge from "@/components/ui/Badge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import OrderFormModal from "@/components/orders/OrderFormModal";
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
-import { ChevronLeft, Plus, Pencil, Trash2, Gift, X } from "lucide-react";
+import { ChevronLeft, Plus, Pencil, Trash2, Gift, X, ImageIcon } from "lucide-react";
 import { format } from "date-fns";
 
 interface ClientProfile {
@@ -24,11 +23,16 @@ interface ClientProfile {
   orders: Array<{
     id: string;
     orderNumber: string;
-    price: number;
+    totalPrice: number;
     paymentStatus: string;
     deliveryDate: string;
-    arrangementType: string | null;
-    itemCount: number;
+    lineItems: Array<{ arrangementType: string | null }>;
+  }>;
+  photos: Array<{
+    id: string;
+    storageUrl: string;
+    caption: string | null;
+    createdAt: string;
   }>;
   subscriptions: Array<{
     id: string;
@@ -65,7 +69,6 @@ export default function ClientProfilePage({
   const { id } = use(params);
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showNewOrder, setShowNewOrder] = useState(false);
   const [showDeleteDate, setShowDeleteDate] = useState<string | null>(null);
   const [newNote, setNewNote] = useState("");
   const [newDateLabel, setNewDateLabel] = useState("");
@@ -308,12 +311,12 @@ export default function ClientProfilePage({
             >
               <Pencil className="w-4 h-4" /> Edit
             </Link>
-            <button
-              onClick={() => setShowNewOrder(true)}
+            <Link
+              href={`/orders/new?clientId=${id}`}
               className="bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold px-3 py-1.5 rounded-md flex items-center gap-1"
             >
               <Plus className="w-4 h-4" /> New Order
-            </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -348,27 +351,30 @@ export default function ClientProfilePage({
             <p className="text-sm text-neutral-400">No orders yet</p>
           ) : (
             <div className="space-y-2">
-              {client.orders.slice(0, 5).map((o) => (
-                <div key={o.id} className="flex items-center justify-between text-sm">
-                  <div>
-                    <span className="text-neutral-400">
-                      {format(new Date(o.deliveryDate), "MMM d")}
-                    </span>
-                    <span className="ml-2 font-medium">{o.orderNumber}</span>
-                    {o.arrangementType && (
-                      <span className="ml-2 text-neutral-400">
-                        {o.arrangementType}
+              {client.orders.slice(0, 5).map((o) => {
+                const arrangementSummary = o.lineItems?.map(li => li.arrangementType).filter(Boolean).join(", ");
+                return (
+                  <Link key={o.id} href={`/orders/${o.id}`} className="flex items-center justify-between text-sm hover:bg-neutral-50 -mx-1 px-1 rounded">
+                    <div>
+                      <span className="text-neutral-400">
+                        {format(new Date(o.deliveryDate), "MMM d")}
                       </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">${o.price.toFixed(2)}</span>
-                    <Badge variant={o.paymentStatus as "paid" | "unpaid" | "partial"}>
-                      {o.paymentStatus}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                      <span className="ml-2 font-medium">{o.orderNumber}</span>
+                      {arrangementSummary && (
+                        <span className="ml-2 text-neutral-400">
+                          {arrangementSummary}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">${o.totalPrice.toFixed(2)}</span>
+                      <Badge variant={o.paymentStatus as "paid" | "unpaid" | "partial"}>
+                        {o.paymentStatus}
+                      </Badge>
+                    </div>
+                  </Link>
+                );
+              })}
               {client.orders.length > 5 && (
                 <Link
                   href={`/orders?clientId=${id}`}
@@ -452,6 +458,35 @@ export default function ClientProfilePage({
         )}
       </div>
 
+      {/* Reference Photos */}
+      <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-6">
+        <h3 className="text-base font-semibold mb-3">Reference Photos</h3>
+        <p className="text-xs text-neutral-400 mb-3">Past order photos, style preferences, color palettes, and arrangement examples.</p>
+        {client.photos && client.photos.length > 0 ? (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+            {client.photos.map((photo) => (
+              <div key={photo.id} className="relative group">
+                <div className="aspect-square rounded-lg bg-neutral-100 border border-neutral-200 overflow-hidden">
+                  <img
+                    src={photo.storageUrl}
+                    alt={photo.caption || "Reference photo"}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                {photo.caption && (
+                  <p className="text-xs text-neutral-500 mt-1 truncate">{photo.caption}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6 text-neutral-400">
+            <ImageIcon className="w-8 h-8 mb-2" />
+            <p className="text-sm">No reference photos yet</p>
+          </div>
+        )}
+      </div>
+
       {/* Subscription */}
       <div className="bg-white rounded-lg border border-neutral-200 p-4">
         <h3 className="text-base font-semibold mb-3">Subscription</h3>
@@ -508,16 +543,6 @@ export default function ClientProfilePage({
           <p className="text-sm text-neutral-400">No active subscription</p>
         )}
       </div>
-
-      <OrderFormModal
-        open={showNewOrder}
-        onClose={() => setShowNewOrder(false)}
-        onSaved={() => {
-          setShowNewOrder(false);
-          fetchClient();
-        }}
-        initialClientId={id}
-      />
 
       <ConfirmDialog
         open={!!showDeleteDate}

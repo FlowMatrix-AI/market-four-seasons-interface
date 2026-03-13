@@ -12,7 +12,7 @@ export async function GET(
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { client: true, subscription: true },
+    include: { client: true, subscription: true, lineItems: { orderBy: { sortOrder: "asc" } }, photos: { orderBy: { createdAt: "asc" } } },
   });
 
   if (!order) {
@@ -32,20 +32,45 @@ export async function PUT(
   const { id } = await params;
   const body = await request.json();
 
-  const { flowers, deliveryDate, ...rest } = body;
+  const { lineItems, deliveryDate, ...rest } = body;
   const data: Record<string, unknown> = { ...rest };
 
-  if (flowers !== undefined) {
-    data.flowers = JSON.stringify(flowers);
-  }
   if (deliveryDate !== undefined) {
     data.deliveryDate = new Date(deliveryDate);
   }
 
+  // If lineItems are provided, delete existing and recreate
+  if (lineItems !== undefined && Array.isArray(lineItems)) {
+    await prisma.orderLineItem.deleteMany({ where: { orderId: id } });
+    const totalPrice = lineItems.reduce((sum: number, item: Record<string, unknown>) => sum + ((item.price as number) || 0), 0);
+    data.totalPrice = totalPrice;
+  }
+
   const order = await prisma.order.update({
     where: { id },
-    data,
-    include: { client: true },
+    data: {
+      ...data,
+      ...(lineItems !== undefined && Array.isArray(lineItems)
+        ? {
+            lineItems: {
+              create: lineItems.map((item: Record<string, unknown>, idx: number) => ({
+                arrangementType: item.arrangementType as string | undefined,
+                description: item.description as string | undefined,
+                flowers: JSON.stringify((item.flowers as unknown[]) || []),
+                vaseOption: item.vaseOption as string | undefined,
+                vaseDescription: item.vaseDescription as string | undefined,
+                wrapOption: item.wrapOption as string | undefined,
+                cardRequired: (item.cardRequired as boolean) || false,
+                cardMessage: item.cardMessage as string | undefined,
+                specialInstructions: item.specialInstructions as string | undefined,
+                price: (item.price as number) || 0,
+                sortOrder: (item.sortOrder as number) ?? idx,
+              })),
+            },
+          }
+        : {}),
+    },
+    include: { client: true, lineItems: { orderBy: { sortOrder: "asc" } }, photos: { orderBy: { createdAt: "asc" } } },
   });
 
   return NextResponse.json(order);

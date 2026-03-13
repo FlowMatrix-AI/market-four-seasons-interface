@@ -13,7 +13,7 @@ export default async function InvoicePage({ params }: PageProps) {
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { client: true },
+    include: { client: true, lineItems: { orderBy: { sortOrder: "asc" } } },
   });
 
   if (!order) {
@@ -42,19 +42,13 @@ export default async function InvoicePage({ params }: PageProps) {
   const shopEmail = settingsMap.shop_email || "marketfourseasons@gmail.com";
   const shopHst = settingsMap.shop_hst || "867392979";
 
-  const subtotal = order.price;
+  const subtotal = order.totalPrice;
   const hst = calculateHST(subtotal);
   const total = calculateTotal(subtotal, hst);
   const paid = order.paymentStatus === "paid" ? total : order.paymentStatus === "partial" ? subtotal * 0.5 : 0;
   const balance = calculateBalance(total, paid);
 
-  const flowers: Array<{ variety: string; color: string; qty: number }> = (() => {
-    try {
-      return JSON.parse(order.flowers);
-    } catch {
-      return [];
-    }
-  })();
+  const lineItems = order.lineItems || [];
 
   return (
     <html>
@@ -140,28 +134,31 @@ export default async function InvoicePage({ params }: PageProps) {
               </tr>
             </thead>
             <tbody>
-              {flowers.length > 0 ? (
-                flowers.map((f, i) => (
-                  <tr key={i}>
-                    <td>{f.qty}</td>
-                    <td>
-                      {order.arrangementType || "Item"} - {f.variety} {f.color}
-                    </td>
-                    <td>${(order.price / (flowers.length || 1)).toFixed(2)}</td>
-                    <td>
-                      $
-                      {((order.price / (flowers.length || 1)) * f.qty).toFixed(
-                        2
-                      )}
-                    </td>
-                  </tr>
-                ))
+              {lineItems.length > 0 ? (
+                lineItems.map((item, i) => {
+                  const flowers: Array<{ variety: string; color: string; qty: number }> = (() => {
+                    try { return JSON.parse(item.flowers); } catch { return []; }
+                  })();
+                  const flowerDesc = flowers.map(f => `${f.qty}x ${f.variety} (${f.color})`).join(", ");
+                  return (
+                    <tr key={i}>
+                      <td>1</td>
+                      <td>
+                        {item.arrangementType || "Item"}
+                        {item.description ? ` - ${item.description}` : ""}
+                        {flowerDesc ? ` [${flowerDesc}]` : ""}
+                      </td>
+                      <td>${item.price.toFixed(2)}</td>
+                      <td>${item.price.toFixed(2)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td>{order.itemCount}</td>
-                  <td>{order.arrangementType || "Arrangement"}</td>
-                  <td>${order.price.toFixed(2)}</td>
-                  <td>${order.price.toFixed(2)}</td>
+                  <td>1</td>
+                  <td>Arrangement</td>
+                  <td>${order.totalPrice.toFixed(2)}</td>
+                  <td>${order.totalPrice.toFixed(2)}</td>
                 </tr>
               )}
             </tbody>
@@ -169,12 +166,12 @@ export default async function InvoicePage({ params }: PageProps) {
 
           <div className="totals">
             <div>
-              <strong>TOTAL # OF ITEMS:</strong> {order.itemCount}
-              {order.specialInstructions && (
+              <strong>TOTAL # OF ITEMS:</strong> {lineItems.length || 1}
+              {order.internalNotes && (
                 <div style={{ marginTop: 10 }}>
                   <strong>Comments:</strong>
                   <br />
-                  {order.specialInstructions}
+                  {order.internalNotes}
                 </div>
               )}
             </div>

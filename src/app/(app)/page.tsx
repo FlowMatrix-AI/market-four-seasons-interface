@@ -3,13 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, subWeeks, addMonths, subMonths, isSameDay, isToday, getDaysInMonth, getDay } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, Printer } from "lucide-react";
+import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import { sortByTimeWindow } from "@/lib/utils/sortOrders";
 import { useSettings } from "@/lib/context/SettingsContext";
-import OrderFormModal from "@/components/orders/OrderFormModal";
-import OrderDetailModal from "@/components/orders/OrderDetailModal";
 
 type ViewMode = "day" | "week" | "month";
+type LocationFilter = "all" | "indoor" | "outdoor";
+
+interface LineItemData {
+  id: string;
+  arrangementType: string | null;
+  description: string | null;
+  price: number;
+}
 
 interface OrderData {
   id: string;
@@ -17,16 +24,17 @@ interface OrderData {
   clientId: string;
   recipientName: string | null;
   recipientAddress: string | null;
-  arrangementType: string | null;
+  locationType: string;
   deliveryTimeWindow: string | null;
   deliveryMethod: string;
   deliveryAddress: string | null;
   paymentStatus: string;
   status: string;
-  price: number;
+  totalPrice: number;
   isSubscriptionGenerated: boolean;
   deliveryDate: string;
   client: { id: string; name: string };
+  lineItems: LineItemData[];
 }
 
 interface Notification {
@@ -43,8 +51,7 @@ export default function CalendarPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showLargeOrderBanner, setShowLargeOrderBanner] = useState(true);
   const [showSubBanner, setShowSubBanner] = useState(true);
-  const [showNewOrder, setShowNewOrder] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
   const { settings } = useSettings();
   const threshold = parseFloat(settings.large_order_threshold) || 200;
 
@@ -62,13 +69,16 @@ export default function CalendarPage() {
       const end = endOfMonth(date);
       url = `/api/orders?start=${format(start, "yyyy-MM-dd")}&end=${format(end, "yyyy-MM-dd")}`;
     }
+    if (locationFilter !== "all") {
+      url += `&location=${locationFilter}`;
+    }
     try {
       const res = await fetch(url);
       if (res.ok) setOrders(await res.json());
     } finally {
       setLoading(false);
     }
-  }, [view, date]);
+  }, [view, date, locationFilter]);
 
   useEffect(() => {
     fetchOrders();
@@ -89,7 +99,7 @@ export default function CalendarPage() {
 
   const largeOrders = orders.filter((o) => {
     const orderDate = new Date(o.deliveryDate);
-    return o.price > threshold && isSameDay(orderDate, new Date());
+    return o.totalPrice > threshold && isSameDay(orderDate, new Date());
   });
 
   const subNotifications = notifications.filter((n) => n.type === "subscription");
@@ -146,11 +156,32 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {/* Location Filter */}
+      <div className="flex items-center gap-2 mb-4">
+        {(["all", "indoor", "outdoor"] as const).map((loc) => (
+          <button
+            key={loc}
+            onClick={() => setLocationFilter(loc)}
+            className={`text-sm px-3 py-1 rounded-full capitalize transition-colors ${
+              locationFilter === loc
+                ? loc === "indoor"
+                  ? "bg-brand-primary text-white font-semibold"
+                  : loc === "outdoor"
+                    ? "bg-brand-secondary text-white font-semibold"
+                    : "bg-neutral-800 text-white font-semibold"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+            }`}
+          >
+            {loc}
+          </button>
+        ))}
+      </div>
+
       {/* Banners */}
       {showLargeOrderBanner && largeOrders.length > 0 && (
         <div className="bg-warning-bg border border-warning-border rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
           <span className="text-sm font-medium text-neutral-900">
-            Large order: {largeOrders.map((o) => `${o.orderNumber} (${o.client.name} - $${o.price})`).join(", ")}
+            Large order: {largeOrders.map((o) => `${o.orderNumber} (${o.client.name} - $${o.totalPrice})`).join(", ")}
           </span>
           <button onClick={() => setShowLargeOrderBanner(false)} className="text-neutral-600 hover:text-neutral-900 text-sm">
             Dismiss
@@ -179,8 +210,6 @@ export default function CalendarPage() {
       ) : view === "day" ? (
         <DayView
           orders={orders}
-          onNewOrder={() => setShowNewOrder(true)}
-          onSelectOrder={(id) => setSelectedOrderId(id)}
           date={date}
         />
       ) : view === "week" ? (
@@ -203,35 +232,16 @@ export default function CalendarPage() {
         />
       )}
 
-      <OrderFormModal
-        open={showNewOrder}
-        onClose={() => setShowNewOrder(false)}
-        onSaved={() => {
-          setShowNewOrder(false);
-          fetchOrders();
-        }}
-      />
-
-      {selectedOrderId && (
-        <OrderDetailModal
-          orderId={selectedOrderId}
-          onClose={() => setSelectedOrderId(null)}
-          onUpdated={fetchOrders}
-        />
-      )}
+      {/* Orders now use full pages at /orders/new and /orders/[id] */}
     </div>
   );
 }
 
 function DayView({
   orders,
-  onNewOrder,
-  onSelectOrder,
   date,
 }: {
   orders: OrderData[];
-  onNewOrder: () => void;
-  onSelectOrder: (id: string) => void;
   date: Date;
 }) {
   const dayOrders = orders.filter((o) =>
@@ -261,13 +271,13 @@ function DayView({
             >
               <Printer className="w-4 h-4" />
             </button>
-            <button
-              onClick={onNewOrder}
+            <Link
+              href="/orders/new"
               className="bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold px-3 py-1.5 rounded-md flex items-center gap-1"
             >
               <Plus className="w-4 h-4" />
               New
-            </button>
+            </Link>
           </div>
         </div>
         {dayOrders.length === 0 ? (
@@ -275,12 +285,12 @@ function DayView({
             <p className="text-sm text-neutral-400 mb-3">
               No orders for this date
             </p>
-            <button
-              onClick={onNewOrder}
+            <Link
+              href="/orders/new"
               className="bg-brand-primary hover:bg-brand-primary-hover text-white text-sm font-semibold px-4 py-2 rounded-md"
             >
               Create Order
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-3">
@@ -288,7 +298,6 @@ function DayView({
               <OrderCard
                 key={order.id}
                 order={order}
-                onClick={() => onSelectOrder(order.id)}
               />
             ))}
           </div>
@@ -356,18 +365,22 @@ function DayView({
   );
 }
 
-function OrderCard({ order, onClick }: { order: OrderData; onClick: () => void }) {
+function OrderCard({ order }: { order: OrderData }) {
   const borderColor =
-    order.deliveryMethod === "pickup"
-      ? "border-l-blue-500"
-      : order.isSubscriptionGenerated
-        ? "border-l-amber-500"
-        : "border-l-brand-primary";
+    order.locationType === "outdoor"
+      ? "border-l-brand-secondary"
+      : order.locationType === "indoor"
+        ? "border-l-brand-primary"
+        : order.isSubscriptionGenerated
+          ? "border-l-amber-500"
+          : "border-l-brand-primary";
+
+  const arrangementSummary = order.lineItems?.map(li => li.arrangementType).filter(Boolean).join(", ");
 
   return (
-    <div
-      onClick={onClick}
-      className={`bg-white rounded-lg border border-neutral-200 border-l-[3px] ${borderColor} p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
+    <Link
+      href={`/orders/${order.id}`}
+      className={`block bg-white rounded-lg border border-neutral-200 border-l-[3px] ${borderColor} p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -386,10 +399,17 @@ function OrderCard({ order, onClick }: { order: OrderData; onClick: () => void }
             <p className="text-xs text-neutral-400">{order.deliveryAddress}</p>
           )}
           <p className="text-xs text-neutral-400 mt-1">
-            {order.deliveryTimeWindow || "No time set"} {order.arrangementType && `\u00B7 ${order.arrangementType}`}
+            {order.deliveryTimeWindow || "No time set"} {arrangementSummary && `\u00B7 ${arrangementSummary}`}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
+            order.locationType === "outdoor"
+              ? "bg-green-100 text-green-700"
+              : "bg-pink-100 text-pink-700"
+          }`}>
+            {order.locationType}
+          </span>
           <Badge
             variant={order.deliveryMethod as "delivery" | "pickup"}
           >
@@ -400,7 +420,7 @@ function OrderCard({ order, onClick }: { order: OrderData; onClick: () => void }
           </Badge>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -447,8 +467,8 @@ function WeekView({
                 <span
                   key={o.id}
                   className={`w-2 h-2 rounded-full ${
-                    o.deliveryMethod === "pickup"
-                      ? "bg-blue-500"
+                    o.locationType === "outdoor"
+                      ? "bg-brand-secondary"
                       : "bg-brand-primary"
                   }`}
                 />
@@ -514,8 +534,8 @@ function MonthView({
             <span
               key={o.id}
               className={`w-1.5 h-1.5 rounded-full ${
-                o.deliveryMethod === "pickup"
-                  ? "bg-blue-500"
+                o.locationType === "outdoor"
+                  ? "bg-brand-secondary"
                   : "bg-brand-primary"
               }`}
             />

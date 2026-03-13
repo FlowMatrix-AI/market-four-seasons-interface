@@ -122,105 +122,219 @@ async function main() {
 
   console.log("Created 5 clients");
 
-  // Create sample orders
+  // Create sample orders with line items
   const today = new Date();
-  const orders = [
-    {
-      orderNumber: `BLM-${today.toISOString().slice(0, 10).replace(/-/g, "")}-001`,
+  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+
+  // Order 1: Robert - indoor delivery with 2 line items
+  const order1 = await prisma.order.upsert({
+    where: { orderNumber: `BLM-${dateStr}-001` },
+    update: {},
+    create: {
+      orderNumber: `BLM-${dateStr}-001`,
       clientId: robert.id,
       recipientName: "Caroline Chen",
       recipientAddress: "123 Queen St W, Toronto",
       occasion: "Anniversary",
-      arrangementType: "Vase Arrangement",
-      flowers: JSON.stringify([{ variety: "Red Roses", color: "Red", qty: 24 }]),
-      price: 150.0,
+      locationType: "indoor",
+      totalPrice: 215.0,
       paymentStatus: "paid",
       deliveryDate: today,
       deliveryTimeWindow: "AM",
       deliveryMethod: "delivery",
       deliveryAddress: "123 Queen St W, Toronto",
       status: "confirmed",
+      createdBy: owner.id,
     },
-    {
-      orderNumber: `BLM-${today.toISOString().slice(0, 10).replace(/-/g, "")}-002`,
+  });
+  await prisma.orderLineItem.createMany({
+    data: [
+      {
+        orderId: order1.id,
+        arrangementType: "Vase Arrangement",
+        description: "24 red roses in crystal vase",
+        flowers: JSON.stringify([{ variety: "Red Roses", color: "Red", qty: 24 }]),
+        vaseOption: "our_vase",
+        vaseDescription: "Large crystal cylinder",
+        price: 150.0,
+        sortOrder: 0,
+      },
+      {
+        orderId: order1.id,
+        arrangementType: "Bouquet",
+        description: "Mixed seasonal bouquet",
+        flowers: JSON.stringify([{ variety: "Mixed Seasonal", color: "Mixed", qty: 1 }]),
+        wrapOption: "gift_wrap",
+        cardRequired: true,
+        cardMessage: "Happy Anniversary, my love!",
+        price: 65.0,
+        sortOrder: 1,
+      },
+    ],
+  });
+
+  // Order 2: Jake - indoor pickup, single item
+  const order2 = await prisma.order.upsert({
+    where: { orderNumber: `BLM-${dateStr}-002` },
+    update: {},
+    create: {
+      orderNumber: `BLM-${dateStr}-002`,
       clientId: jake.id,
       recipientName: "Jake Gardener",
       occasion: "Just Because",
-      arrangementType: "Bouquet",
-      flowers: JSON.stringify([{ variety: "Sunflowers", color: "Yellow", qty: 12 }]),
-      price: 85.0,
+      locationType: "indoor",
+      totalPrice: 85.0,
       paymentStatus: "paid",
       deliveryDate: today,
       deliveryTimeWindow: "10am-1pm",
       deliveryMethod: "pickup",
       status: "confirmed",
+      createdBy: staff.id,
     },
-    {
-      orderNumber: `BLM-${today.toISOString().slice(0, 10).replace(/-/g, "")}-003`,
+  });
+  await prisma.orderLineItem.create({
+    data: {
+      orderId: order2.id,
+      arrangementType: "Bouquet",
+      description: "Sunflower bouquet",
+      flowers: JSON.stringify([{ variety: "Sunflowers", color: "Yellow", qty: 12 }]),
+      wrapOption: "normal",
+      price: 85.0,
+      sortOrder: 0,
+    },
+  });
+
+  // Order 3: Gary - outdoor delivery
+  const order3 = await prisma.order.upsert({
+    where: { orderNumber: `BLM-${dateStr}-003` },
+    update: {},
+    create: {
+      orderNumber: `BLM-${dateStr}-003`,
       clientId: gary.id,
       recipientName: "Mrs. Carbell",
       recipientAddress: "789 Bloor St W, Toronto",
       occasion: "Birthday",
-      arrangementType: "Centerpiece",
-      flowers: JSON.stringify([
-        { variety: "Peonies", color: "Pink", qty: 8 },
-        { variety: "Eucalyptus", color: "Green", qty: 5 },
-      ]),
-      price: 220.0,
+      locationType: "outdoor",
+      totalPrice: 220.0,
       paymentStatus: "unpaid",
       deliveryDate: today,
       deliveryTimeWindow: "1pm-5pm",
       deliveryMethod: "delivery",
       deliveryAddress: "789 Bloor St W, Toronto",
       status: "confirmed",
+      createdBy: owner.id,
     },
-    {
-      orderNumber: `BLM-${today.toISOString().slice(0, 10).replace(/-/g, "")}-004`,
+  });
+  await prisma.orderLineItem.create({
+    data: {
+      orderId: order3.id,
+      arrangementType: "Centerpiece",
+      description: "Birthday centerpiece",
+      flowers: JSON.stringify([
+        { variety: "Peonies", color: "Pink", qty: 8 },
+        { variety: "Eucalyptus", color: "Green", qty: 5 },
+      ]),
+      cardRequired: true,
+      cardMessage: "Happy Birthday! With love from Gary",
+      specialInstructions: "Use a low, round vessel for the table",
+      price: 220.0,
+      sortOrder: 0,
+    },
+  });
+
+  // Order 4: Dylan - indoor delivery
+  const order4 = await prisma.order.upsert({
+    where: { orderNumber: `BLM-${dateStr}-004` },
+    update: {},
+    create: {
+      orderNumber: `BLM-${dateStr}-004`,
       clientId: dylan.id,
       recipientName: "Sarah Cooper",
       recipientAddress: "321 Dundas St, Toronto",
       occasion: "Sympathy",
-      arrangementType: "Basket",
-      flowers: JSON.stringify([
-        { variety: "White Lilies", color: "White", qty: 10 },
-        { variety: "White Roses", color: "White", qty: 6 },
-      ]),
-      price: 175.0,
+      locationType: "indoor",
+      totalPrice: 175.0,
       paymentStatus: "partial",
       deliveryDate: today,
       deliveryTimeWindow: "AM",
       deliveryMethod: "delivery",
       deliveryAddress: "321 Dundas St, Toronto",
       status: "in_progress",
+      createdBy: owner.id,
     },
-    {
-      orderNumber: `BLM-${today.toISOString().slice(0, 10).replace(/-/g, "")}-005`,
+  });
+  await prisma.orderLineItem.create({
+    data: {
+      orderId: order4.id,
+      arrangementType: "Basket",
+      description: "Sympathy basket arrangement",
+      flowers: JSON.stringify([
+        { variety: "White Lilies", color: "White", qty: 10 },
+        { variety: "White Roses", color: "White", qty: 6 },
+      ]),
+      cardRequired: true,
+      cardMessage: "With deepest sympathy",
+      price: 175.0,
+      sortOrder: 0,
+    },
+  });
+
+  // Order 5: David - outdoor delivery, 3 line items
+  const order5 = await prisma.order.upsert({
+    where: { orderNumber: `BLM-${dateStr}-005` },
+    update: {},
+    create: {
+      orderNumber: `BLM-${dateStr}-005`,
       clientId: david.id,
       recipientName: "David Baron",
       occasion: "Corporate",
-      arrangementType: "Vase Arrangement",
-      flowers: JSON.stringify([
-        { variety: "Orchids", color: "White", qty: 3 },
-        { variety: "Calla Lilies", color: "White", qty: 5 },
-      ]),
-      price: 350.0,
+      locationType: "outdoor",
+      totalPrice: 550.0,
       paymentStatus: "paid",
       deliveryDate: today,
       deliveryTimeWindow: "10am-1pm",
       deliveryMethod: "delivery",
       deliveryAddress: "654 Yonge St, Toronto",
       status: "confirmed",
+      createdBy: owner.id,
     },
-  ];
+  });
+  await prisma.orderLineItem.createMany({
+    data: [
+      {
+        orderId: order5.id,
+        arrangementType: "Vase Arrangement",
+        description: "White orchid arrangement",
+        flowers: JSON.stringify([{ variety: "Orchids", color: "White", qty: 3 }]),
+        vaseOption: "our_vase",
+        vaseDescription: "Tall white ceramic",
+        price: 200.0,
+        sortOrder: 0,
+      },
+      {
+        orderId: order5.id,
+        arrangementType: "Vase Arrangement",
+        description: "Calla lily arrangement",
+        flowers: JSON.stringify([{ variety: "Calla Lilies", color: "White", qty: 5 }]),
+        vaseOption: "their_vase",
+        price: 175.0,
+        sortOrder: 1,
+      },
+      {
+        orderId: order5.id,
+        arrangementType: "Bouquet",
+        description: "Seasonal greenery bouquet",
+        flowers: JSON.stringify([{ variety: "Mixed Greens", color: "Green", qty: 1 }]),
+        wrapOption: "wet_pack",
+        cardRequired: true,
+        cardMessage: "Thank you for your partnership",
+        price: 175.0,
+        sortOrder: 2,
+      },
+    ],
+  });
 
-  for (const order of orders) {
-    await prisma.order.upsert({
-      where: { orderNumber: order.orderNumber },
-      update: {},
-      create: order,
-    });
-  }
-  console.log("Created 5 orders");
+  console.log("Created 5 orders with line items");
 
   // Create a subscription
   await prisma.subscription.upsert({

@@ -14,7 +14,7 @@ export async function GET(
     where: { id },
     include: {
       specialDates: true,
-      orders: { orderBy: { deliveryDate: "desc" } },
+      orders: { orderBy: { deliveryDate: "desc" }, include: { lineItems: { orderBy: { sortOrder: "asc" } } } },
       subscriptions: true,
       photos: { orderBy: { createdAt: "desc" } },
       clientNotes: { orderBy: { createdAt: "desc" } },

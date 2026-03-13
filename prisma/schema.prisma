@@ -64,35 +64,59 @@ model ClientRelationship {
 }
 
 model Order {
-  id                      String    @id @default(cuid())
-  orderNumber             String    @unique
+  id                      String          @id @default(cuid())
+  orderNumber             String          @unique
   clientId                String
   recipientName           String?
   recipientAddress        String?
   recipientPhone          String?
   occasion                String?
-  arrangementType         String?
-  flowers                 String    @default("[]") // JSON array
-  specialInstructions     String?
-  cardRequired            Boolean   @default(false)
-  cardMessage             String?
-  price                   Float     @default(0)
-  itemCount               Int       @default(1)
-  paymentStatus           String    @default("unpaid") // paid | unpaid | partial
+  locationType            String          @default("indoor") // indoor | outdoor
+  totalPrice              Float           @default(0)
+  paymentStatus           String          @default("unpaid") // paid | unpaid | partial
   deliveryDate            DateTime
   deliveryTimeWindow      String?
-  deliveryMethod          String    @default("delivery") // delivery | pickup
+  deliveryMethod          String          @default("delivery") // delivery | pickup
   deliveryAddress         String?
   internalNotes           String?
-  status                  String    @default("confirmed") // draft | confirmed | in_progress | ready | delivered | cancelled
-  isSubscriptionGenerated Boolean   @default(false)
+  status                  String          @default("confirmed") // draft | confirmed | in_progress | ready | delivered | cancelled
+  isSubscriptionGenerated Boolean         @default(false)
   subscriptionId          String?
   invoiceNumber           String?
   createdBy               String?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  client                  Client    @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
-  subscription            Subscription? @relation(fields: [subscriptionId], references: [id])
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  client                  Client          @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
+  subscription            Subscription?   @relation(fields: [subscriptionId], references: [id])
+  lineItems               OrderLineItem[]
+  photos                  OrderPhoto[]
+}
+
+model OrderLineItem {
+  id                  String  @id @default(cuid())
+  orderId             String
+  arrangementType     String?
+  description         String?
+  flowers             String  @default("[]") // JSON array [{variety, color, qty}]
+  vaseOption          String? // our_vase | their_vase | no_vase (shown when arrangementType = Vase Arrangement)
+  vaseDescription     String?
+  wrapOption          String? // normal | gift_wrap | wet_pack | none (shown when arrangementType = Bouquet)
+  cardRequired        Boolean @default(false)
+  cardMessage         String?
+  specialInstructions String?
+  price               Float   @default(0)
+  sortOrder           Int     @default(0)
+  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model OrderPhoto {
+  id         String   @id @default(cuid())
+  orderId    String
+  photoType  String   // reference | completion
+  storageUrl String
+  caption    String?
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model Subscription {
